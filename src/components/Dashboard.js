@@ -1,33 +1,33 @@
 import React, { useState } from "react";
-import { Route, Switch } from "react-router";
-import { Add } from "./Dashboard/Actions/Add";
-import { Container } from "./Dashboard/Container";
-import { Navbar } from "./Dashboard/Navbar";
-import { SideBar } from "./Dashboard/Sidebar";
-import { View } from "./Dashboard/Actions/View";
-import NotFound from "./NotFound";
-import { HomeDash } from "./Dashboard/HomeDash";
-import { Loading } from "../Loading";
-import { OnScreen } from "./Dashboard/OnScreen";
-import {AccountOnScreen} from "./Dashboard/OnScreen/Account"
 import { useSelector } from "react-redux";
+import { Route, Switch } from "react-router";
+import { Loading } from "../Loading";
+import { Add } from "./Dashboard/Actions/Add";
+import { View } from "./Dashboard/Actions/View";
+import { Container } from "./Dashboard/Container";
+import { HomeDash } from "./Dashboard/HomeDash";
+import { Navbar } from "./Dashboard/Navbar";
+import { OnScreen } from "./Dashboard/OnScreen";
+import { AccountOnScreen } from "./Dashboard/OnScreen/Account";
+import { SideBar } from "./Dashboard/Sidebar";
+import NotFound from "./NotFound";
 
 function Dashboard() {
   const [expandSideBar, setexpandSideBar] = useState(false);
-  const {dashboardLoading, showOnScreen, onScreenData} = useSelector(state=>state.global)
+  const { dashboardLoading, showOnScreen } = useSelector(
+    (state) => state.global
+  );
   return (
     <>
-    
       <Navbar
         setexpandSideBar={setexpandSideBar}
         expandSideBar={expandSideBar}
       />
       <SideBar expand={expandSideBar} setexpand={setexpandSideBar} />
-      <Container style={showOnScreen ? {position:"relative"} : null}>
-        {
-          showOnScreen ?
+      <Container style={showOnScreen ? { position: "relative" } : null}>
+        {showOnScreen ? (
           <OnScreen
-          style={{
+            style={{
               height: "100%",
               zIndex: 2,
               width: "100%",
@@ -39,8 +39,7 @@ function Dashboard() {
           >
             <AccountOnScreen />
           </OnScreen>
-        :
-        dashboardLoading ? (
+        ) : dashboardLoading ? (
           <Loading
             style={{
               height: "100%",
@@ -70,4 +69,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard
+export default Dashboard;

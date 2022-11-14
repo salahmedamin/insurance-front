@@ -1,22 +1,23 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react";
+import { connect } from "react-redux";
 import { Link } from "react-router-dom";
-import { connect } from "react-redux"
-import { AccordionMenu } from "./Sidebar/AccordionDropdown"
-import all from "./Sidebar/What_To_Show/all"
+import { AccordionMenu } from "./Sidebar/AccordionDropdown";
+import { all } from "./Sidebar/What_To_Show/all";
 
 const SideBarx = ({ expand, setexpand, type }) => {
-    const ref = useRef()
-    const outsideclick = (e)=>{
-        if(expand && !ref?.current?.contains(e.target)){
-            setexpand(false)
-        }
+  const ref = useRef();
+  const outsideclick = (e) => {
+    if (expand && !ref?.current?.contains(e.target)) {
+      setexpand(false);
     }
+  };
   useEffect(() => {
-      window.addEventListener("click",outsideclick)
-      return () => {
-          window.removeEventListener("click",outsideclick)
-      }
-  }, [expand])
+    window.addEventListener("click", outsideclick);
+    return () => {
+      window.removeEventListener("click", outsideclick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expand]);
   return (
     <>
       <div ref={ref} className={"left-side-bar" + (expand ? " open" : "")}>
@@ -54,11 +55,9 @@ const SideBarx = ({ expand, setexpand, type }) => {
             >
               <div className="sidebar-menu icon-style-1 icon-list-style-1">
                 <ul id="accordion-menu">
-                  {
-                    all[type].map((a,b)=>
-                      <AccordionMenu key={b} {...a} />
-                    )
-                  }
+                  {all[type].map((a, b) => (
+                    <AccordionMenu key={b} {...a} />
+                  ))}
                 </ul>
               </div>
             </div>
@@ -67,7 +66,9 @@ const SideBarx = ({ expand, setexpand, type }) => {
       </div>
       <div className={"mobile-menu-overlay" + (expand ? " show" : "")}></div>
     </>
-  )
-}
+  );
+};
 
-export const SideBar = connect(state=>({type:state.auth.type}))(SideBarx)
+export const SideBar = connect((state) => ({ type: state.auth.type }))(
+  SideBarx
+);

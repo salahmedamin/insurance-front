@@ -1,12 +1,13 @@
 import axios from "axios";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { connect } from "react-redux";
 import { useHistory } from "react-router";
-import readXlsxFile,{parseExcelDate} from "read-excel-file";
+import readXlsxFile from "read-excel-file";
 import { employeesRedux } from "../../../../asyncRequests/employees/needs/reduxDispatch";
 import { cookies } from "../../../../cookies";
 import { Loading } from "../../../../Loading";
+import { Option } from "../../HomeDash/Options/Option";
 
 const offers = [
   {
@@ -25,7 +26,6 @@ const offers = [
     limit: 400,
   },
 ];
-
 
 // const schema = {
 //   'matricule': {
@@ -83,7 +83,7 @@ const struct = [
   },
   {
     value: "dateNaiss",
-    check: (e) => e !== null && (new Date(e)) !== {},
+    check: (e) => e !== null && new Date(e) !== {},
   },
   {
     value: "sexe",
@@ -94,9 +94,10 @@ const struct = [
 ];
 
 const AddContract = ({ entID, entMatFiscal }) => {
-  const history = useHistory()
+  const history = useHistory();
   const [list, setlist] = useState(null);
-  const [loading, setloading] = useState(false)
+  const [loading, setloading] = useState(false);
+  const [acts, setacts] = useState([]);
   const { register, handleSubmit } = useForm();
   const errorInit = {
     excel: {
@@ -111,46 +112,68 @@ const AddContract = ({ entID, entMatFiscal }) => {
   const [error, seterror] = useState(errorInit);
   const [offer, setoffer] = useState("");
 
+  const getMedActs = async () => {
+    const { data } = await axios.get(
+      process.env.REACT_APP_ENDPOINT + "/medical-acts",
+      {
+        headers: {
+          authorization: cookies.getCookie("token"),
+        },
+      }
+    );
+    localStorage.setItem("medicalActs", JSON.stringify(data));
+  };
+
+  useEffect(() => {
+    (async () => {
+      await getMedActs();
+    })();
+  }, []);
+
   const uploadFile = (e) => {
-    readXlsxFile(e.target.files[0] ).then((rows) => {
-      const mapped = rows.map((row) => {
-        let rr = {}, i = 0;
-        for (const strct of struct) {
-          if (!row[i]) {
-            seterror((e) => ({
-              ...e,
-              excel: {
-                value: true,
-                message:
-                  "This spreadsheet contains too much information, use what's required",
-              },
-            }));
-            return;
-          }
-          if (!strct.check(row[i])) {
-            seterror((e) => ({
-              ...e,
-              excel: {
-                value: true,
-                message:
-                  "The required format for each employee in excel file is not met",
-              },
-            }));
-            return;
-          }
-          if(strct.value === "dateNaiss"){
-            rr[strct.value] = parseExcelDate(row[i])
-          }
-          else{
+    readXlsxFile(e.target.files[0])
+      .then((rows) => {
+        const mapped = rows.flatMap((row) => {
+          let rr = {},
+            i = 0;
+          for (const strct of struct) {
+            if (!row[i]) {
+              seterror((e) => ({
+                ...e,
+                excel: {
+                  value: true,
+                  message:
+                    "This spreadsheet contains too much information, use what's required",
+                },
+              }));
+              return [];
+            }
+            if (!strct.check(row[i])) {
+              seterror((e) => ({
+                ...e,
+                excel: {
+                  value: true,
+                  message:
+                    "The required format for each employee in excel file is not met",
+                },
+              }));
+              return [];
+            }
+            // if (strct.value === "dateNaiss") {
+            // rr[strct.value] = parseExcelDate(row[i]);
+            // } else {
             rr[strct.value] = row[i];
+            // }
+            i++;
+            seterror((e) => ({ ...e, excel: { value: false, message: "" } }));
           }
-          i++;
-          seterror((e) => ({ ...e, excel: { value: false, message: "" } }));
-        }
-        return rr;
+          return rr;
+        });
+        setlist(mapped);
+      })
+      .catch((e) => {
+        setlist([]);
       });
-      setlist(mapped);
-    });
   };
 
   const onSub = async (data) => {
@@ -184,30 +207,48 @@ const AddContract = ({ entID, entMatFiscal }) => {
     }
     if (error.excel.value || error.radio.value) return;
     else seterror(errorInit);
-    setloading(true)
-    const sendAxiosOne = await axios.post(
-      process.env.REACT_APP_ENDPOINT+"/contract/create",
-      { ...data, offer, entID, entMatFiscal },
-      {
-        headers: {
-          authorization: cookies.getCookie("token"),
-        },
-      }
-    );
-    const sendAxiosTwo = await axios.post(
-        process.env.REACT_APP_ENDPOINT+"/contract/addInsuredList",
-        { list, contractUnique: sendAxiosOne.data.unique },
+    setloading(true);
+    axios
+      .post(
+        process.env.REACT_APP_ENDPOINT + "/contract/create",
+        { ...data, offer, entID, entMatFiscal, acts: acts.map((e) => e.id) },
         {
           headers: {
             authorization: cookies.getCookie("token"),
           },
         }
-      );
-      if(sendAxiosTwo.data.success){
-        employeesRedux([])
-        history.push("/dashboard/view/contracts")
-      }
-      else seterror(e=>({...e,excel:{value:true,message:sendAxiosTwo.data.message}}))
+      )
+      .then((res) => {
+        axios
+          .post(
+            process.env.REACT_APP_ENDPOINT + "/contract/addInsuredList",
+            { list, contractUnique: res.data.unique },
+            {
+              headers: {
+                authorization: cookies.getCookie("token"),
+              },
+            }
+          )
+          .then(() => {
+            employeesRedux([]);
+            history.push("/dashboard/view/contracts");
+            setloading(false);
+          })
+          .catch((ee) => {
+            setloading(false);
+            seterror((e) => ({
+              ...e,
+              excel: { value: true, message: ee.message },
+            }));
+          });
+      })
+      .catch((ex) => {
+        setloading(false);
+        seterror((e) => ({
+          ...e,
+          excel: { value: true, message: ex.message },
+        }));
+      });
   };
   return (
     <div className="pd-20 card-box mb-30 position-relative">
@@ -219,8 +260,8 @@ const AddContract = ({ entID, entMatFiscal }) => {
             width: "100%",
             left: 0,
             top: 0,
-            zIndex:2,
-            background:"rgb(255,255,255,.8)"
+            zIndex: 2,
+            background: "rgb(255,255,255,.8)",
           }}
         />
       ) : null}
@@ -259,72 +300,33 @@ const AddContract = ({ entID, entMatFiscal }) => {
         <div className="form-group">
           <div className="col-md-6 col-sm-12">
             <label className="weight-600">Offer</label>
-            <div
-              className="custom-control custom-radio mb-5"
-              onClick={() => {
-                setoffer("advanced");
-                seterror((e) => ({
-                  ...e,
-                  radio: {
-                    value: false,
-                    message: "",
-                  },
-                }));
-              }}
-            >
-              <input
-                type="radio"
-                className="custom-control-input"
-                value={offer}
-                checked={offer === "advanced"}
-                readOnly
-              />
-              <label className="custom-control-label">ADVANCED</label>
-            </div>
-            <div
-              className="custom-control custom-radio mb-5"
-              onClick={() => {
-                setoffer("pro");
-                seterror((e) => ({
-                  ...e,
-                  radio: {
-                    value: false,
-                    message: "",
-                  },
-                }));
-              }}
-            >
-              <input
-                type="radio"
-                className="custom-control-input"
-                value={offer}
-                checked={offer === "pro"}
-                readOnly
-              />
-              <label className="custom-control-label">PRO</label>
-            </div>
-            <div
-              className="custom-control custom-radio mb-5"
-              onClick={() => {
-                setoffer("basic");
-                seterror((e) => ({
-                  ...e,
-                  radio: {
-                    value: false,
-                    message: "",
-                  },
-                }));
-              }}
-            >
-              <input
-                type="radio"
-                className="custom-control-input"
-                value={offer}
-                checked={offer === "basic"}
-                readOnly
-              />
-              <label className="custom-control-label">BASIC</label>
-            </div>
+            {["advanced", "pro", "basic"].map((e, i) => (
+              <div
+                key={i}
+                className="custom-control custom-radio mb-5"
+                onClick={() => {
+                  setoffer(e);
+                  seterror((e) => ({
+                    ...e,
+                    radio: {
+                      value: false,
+                      message: "",
+                    },
+                  }));
+                }}
+              >
+                <input
+                  type="radio"
+                  className="custom-control-input"
+                  value={e}
+                  checked={offer === e}
+                  readOnly
+                />
+                <label className="custom-control-label">
+                  {e.toUpperCase()}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
         {offer ? (
@@ -353,6 +355,47 @@ const AddContract = ({ entID, entMatFiscal }) => {
         ) : null}
 
         <div className="form-group">
+          <label>
+            Liste des actes médicaux à couvrir{" "}
+            {!localStorage.getItem("medicalActs") ? (
+              <span style={{ fontSize: 11, color: "firebrick" }}>
+                Loading...
+              </span>
+            ) : null}
+          </label>
+          <div className="row">
+            {!localStorage.getItem("medicalActs")
+              ? null
+              : JSON.parse(localStorage.getItem("medicalActs")).map((e) => {
+                  const isSelected = !!acts.find((z) => z.id === e.id);
+                  return (
+                    <Option
+                      isSelected={isSelected}
+                      redirect={false}
+                      key={e.code}
+                      text={
+                        <>
+                          CODE:{" "}
+                          <span style={{ color: "var(--success)" }}>
+                            {e.code}
+                          </span>
+                        </>
+                      }
+                      title={e.nom}
+                      onClick={() =>
+                        setacts(
+                          isSelected
+                            ? acts.filter((x) => x.id !== e.id)
+                            : (z) => [...z, e]
+                        )
+                      }
+                    />
+                  );
+                })}
+          </div>
+        </div>
+
+        <div className="form-group">
           <label>Import employees list (.xlsx)</label>
           <div className="custom-file mb-2">
             <input
@@ -367,6 +410,43 @@ const AddContract = ({ entID, entMatFiscal }) => {
             name, birth date and gender.
           </small>
         </div>
+        {list?.length > 0 ? (
+          <div className="form-group">
+            <table className="data-table table nowrap dataTable no-footer">
+              <thead>
+                <tr role="row">
+                  <th rowSpan={1} colSpan={1} style={{ width: 120 }}>
+                    Matricule
+                  </th>
+                  <th rowSpan={1} colSpan={1} style={{ width: 90 }}>
+                    Nom
+                  </th>
+                  <th rowSpan={1} colSpan={1} style={{ width: 90 }}>
+                    Prenom
+                  </th>
+                  <th rowSpan={1} colSpan={1} style={{ width: 150 }}>
+                    Date naissance
+                  </th>
+                  <th rowSpan={1} colSpan={1} style={{ width: 40 }}>
+                    Sexe
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {list?.map((e, i) => (
+                  <tr key={i} role="row" className="even">
+                    <td>{e.matricule}</td>
+                    <td>{e.nom}</td>
+                    <td>{e.prenom}</td>
+                    <td>{new Date(e.dateNaiss).toLocaleDateString()}</td>
+                    <td>{e.sexe}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
         <div className="clearfix my-3">
           <div className="pull-right">
             <input

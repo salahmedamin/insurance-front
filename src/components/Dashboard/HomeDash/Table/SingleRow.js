@@ -1,6 +1,4 @@
-import { useRef } from "react";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 export const SingleRow = ({ object }) => {
@@ -14,7 +12,8 @@ export const SingleRow = ({ object }) => {
     return () => {
       window.removeEventListener("click", outside);
     };
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <tr role="row" className="even">
       {Object.keys(object)
@@ -24,7 +23,11 @@ export const SingleRow = ({ object }) => {
             {!object.viewable?.includes(a) ? (
               object[a]
             ) : (
-              <Link onClick={object[a].onClick} to={{pathname: object[a].to, state: object[a].state}} className="dropdown-item">
+              <Link
+                onClick={object[a].onClick}
+                to={{ pathname: object[a].to, state: object[a].state }}
+                className="dropdown-item"
+              >
                 <i className="dw dw-eye"></i> Voir
               </Link>
             )}
@@ -36,7 +39,7 @@ export const SingleRow = ({ object }) => {
             <div
               className="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
               style={{
-                cursor:"pointer"
+                cursor: "pointer",
               }}
               onClick={() => setexpand(!expand)}
             >
@@ -49,26 +52,32 @@ export const SingleRow = ({ object }) => {
                 (expand ? " show" : "")
               }
             >
-              {object.action === true || object.action.see ?
+              {object.action === true || object.action.see ? (
                 <div
-                  style={{cursor:"pointer"}}
+                  style={{ cursor: "pointer" }}
                   className="dropdown-item"
-                  onClick={()=>{setexpand(false);object.action.see?.onClick()}}  
+                  onClick={() => {
+                    setexpand(false);
+                    object.action.see?.onClick();
+                  }}
                 >
-                  <i className="dw dw-eye"></i> {object.action.see?.text??"Voir"}
+                  <i className="dw dw-eye"></i>{" "}
+                  {object.action.see?.text ?? "Voir"}
                 </div>
-              :
-                null}
-              {object.action === true || object.action.delete ?
+              ) : null}
+              {object.action === true || object.action.delete ? (
                 <div
-                  style={{cursor:"pointer"}}
+                  style={{ cursor: "pointer" }}
                   className="dropdown-item"
-                  onClick={()=>{setexpand(false);object.action.delete?.onClick()}}  
+                  onClick={() => {
+                    setexpand(false);
+                    object.action.delete?.onClick();
+                  }}
                 >
-                  <i className="dw dw-delete-3"></i>{object.action.delete.text??"Delete"}
+                  <i className="dw dw-delete-3"></i>
+                  {object.action.delete.text ?? "Delete"}
                 </div>
-              :
-                null}
+              ) : null}
             </div>
           </div>
         </td>
